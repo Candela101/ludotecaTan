@@ -50,7 +50,7 @@ export class LoanEditComponent implements OnInit {
         console.log(result.description);
 
         const dialogRef = this.dialog.open(DialogErrorComponent, {
-          data: { title: "ERROR" + result.result, description: result.description }
+          data: { title: "ERROR " + result.result, description: result.description }
         });
       } else {
         this.dialogRef.close();
