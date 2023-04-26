@@ -8,6 +8,7 @@ import org.dozer.DozerBeanMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.ccsw.tutorial.client.ClientService;
@@ -55,64 +56,55 @@ public class LoanServiceImpl implements LoanService {
 
         ResultDto result = new ResultDto();
 
-        if (dto.getDateLoan().before(dto.getDateReturn())) {
-
-            if (TimeUnit.DAYS.convert(Math.abs(dto.getDateReturn().getTime() - dto.getDateLoan().getTime()),
-                    TimeUnit.MILLISECONDS) <= 14) {
-
-                if (availableGame(dto.getGame(), dto.getDateLoan(), dto.getDateReturn())) {
-
-                    if (availableClient(dto.getClient(), dto.getDateLoan(), dto.getDateReturn())) {
-
-                        Loan loan = new Loan();
-
-                        BeanUtils.copyProperties(dto, loan, "id", "game", "client");
-                        loan.setGame(gameService.get(dto.getGame().getId()));
-                        loan.setClient(clientService.get(dto.getClient().getId()));
-
-                        loanRepository.save(loan);
-
-                        result.setResult(1);
-                        result.setDescription("Todo correcto: nuevo préstamo creado con ID: " + loan.getId());
-                    } else {
-                        result.setResult(-4);
-                        result.setDescription("Error: Mismo cliente con 2 juegos en el mismo periodo");
-                    }
-                } else {
-                    result.setResult(-3);
-                    result.setDescription("Error: Mismo juego con 2 clientes en el mismo periodo");
-                }
-
-            } else {
-                result.setResult(-2);
-                result.setDescription("Error: El préstamo supera el plazo máximo de 14 días");
-            }
-        } else {
-            result.setResult(-1);
-            result.setDescription("Error: La fecha de inicio no es anterior a la fecha final");
+        if (dto.getDateLoan().after(dto.getDateReturn())) {
+            result.setResult(HttpStatus.BAD_REQUEST.value());
+            result.setDescription("La fecha de inicio no puede ser posterior a la fecha de fin");
+            return result;
         }
 
+        if (!checkLoanPeriod(dto.getDateLoan(), dto.getDateReturn())) {
+            result.setResult(HttpStatus.BAD_REQUEST.value());
+            result.setDescription("El periodo de préstamo excede el máximo permitido");
+            return result;
+        }
+
+        if (!checkGameAvailability(dto.getGame(), dto.getDateLoan(), dto.getDateReturn())) {
+            result.setResult(HttpStatus.CONFLICT.value());
+            result.setDescription("El juego no está disponible en las fechas seleccionadas");
+            return result;
+        }
+
+        if (!checkClientAvailability(dto.getClient(), dto.getDateLoan(), dto.getDateReturn())) {
+            result.setResult(HttpStatus.CONFLICT.value());
+            result.setDescription("El cliente tiene otro préstamo en las fechas seleccionadas");
+            return result;
+        }
+
+        Loan loan = new Loan();
+        BeanUtils.copyProperties(dto, loan, "id", "game", "client");
+        loan.setGame(gameService.get(dto.getGame().getId()));
+        loan.setClient(clientService.get(dto.getClient().getId()));
+        loanRepository.save(loan);
+
+        result.setResult(HttpStatus.OK.value());
+        result.setDescription("Préstamo creado con éxito con ID: " + loan.getId());
         return result;
     }
 
-    private boolean availableClient(ClientDto client, Date dateLoan, Date dateReturn) {
-        List<Loan> aux = loanRepository.clientOnDates(client.getId(), dateLoan, dateReturn);
-
-        if (aux.size() > 0) {
-            return false;
-        } else {
-            return true;
-        }
+    private boolean checkLoanPeriod(Date dateLoan, Date dateReturn) {
+        long loanDays = TimeUnit.DAYS.convert(Math.abs(dateReturn.getTime() - dateLoan.getTime()),
+                TimeUnit.MILLISECONDS);
+        return loanDays <= 14;
     }
 
-    private boolean availableGame(GameDto game, Date dateLoan, Date dateReturn) {
-        List<Loan> aux = loanRepository.gameOnDates(game.getId(), dateLoan, dateReturn);
+    private boolean checkClientAvailability(ClientDto client, Date dateLoan, Date dateReturn) {
+        List<Loan> loans = loanRepository.clientOnDates(client.getId(), dateLoan, dateReturn);
+        return loans.isEmpty();
+    }
 
-        if (aux.size() > 0) {
-            return false;
-        } else {
-            return true;
-        }
+    private boolean checkGameAvailability(GameDto game, Date dateLoan, Date dateReturn) {
+        List<Loan> loans = loanRepository.gameOnDates(game.getId(), dateLoan, dateReturn);
+        return loans.isEmpty();
     }
 
     /**
