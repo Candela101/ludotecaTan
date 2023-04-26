@@ -86,8 +86,6 @@ public class LoanServiceImpl implements LoanService {
         loan.setClient(clientService.get(dto.getClient().getId()));
         loanRepository.save(loan);
 
-        result.setResult(HttpStatus.OK.value());
-        result.setDescription("Préstamo creado con éxito con ID: " + loan.getId());
         return result;
     }
 
