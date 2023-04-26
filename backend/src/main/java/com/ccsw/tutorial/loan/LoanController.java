@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ccsw.tutorial.config.CustomDozerMapper;
 import com.ccsw.tutorial.loan.model.LoanDto;
 import com.ccsw.tutorial.loan.model.LoanSearchDto;
-import com.ccsw.tutorial.model.ResultDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,9 +37,9 @@ public class LoanController {
 
     @Operation(summary = "Save or Update", description = "Method that saves or updates a Loan")
     @RequestMapping(path = { "" }, method = RequestMethod.PUT)
-    public ResultDto save(@RequestBody LoanDto dto) {
+    public void save(@RequestBody LoanDto dto) {
 
-        return this.loanService.save(dto);
+        this.loanService.save(dto);
     }
 
     @Operation(summary = "Delete", description = "Method that deletes a Author")

@@ -13,12 +13,12 @@ import org.springframework.stereotype.Service;
 
 import com.ccsw.tutorial.client.ClientService;
 import com.ccsw.tutorial.client.model.ClientDto;
+import com.ccsw.tutorial.common.criteria.AlreadyExistsException;
 import com.ccsw.tutorial.game.GameService;
 import com.ccsw.tutorial.game.model.GameDto;
 import com.ccsw.tutorial.loan.model.Loan;
 import com.ccsw.tutorial.loan.model.LoanDto;
 import com.ccsw.tutorial.loan.model.LoanSearchDto;
-import com.ccsw.tutorial.model.ResultDto;
 
 import jakarta.transaction.Transactional;
 
@@ -52,41 +52,33 @@ public class LoanServiceImpl implements LoanService {
      * {@inheritDoc}
      */
     @Override
-    public ResultDto save(LoanDto dto) {
-
-        ResultDto result = new ResultDto();
-
-        if (dto.getDateLoan().after(dto.getDateReturn())) {
-            result.setResult(HttpStatus.BAD_REQUEST.value());
-            result.setDescription("La fecha de inicio no puede ser posterior a la fecha de fin");
-            return result;
+    public void save(LoanDto dto) {
+        try {
+            if (dto.getDateLoan().after(dto.getDateReturn())) {
+                throw new AlreadyExistsException("La fecha de inicio no puede ser posterior a la fecha de fin", HttpStatus.BAD_REQUEST);
+            }
+    
+            if (!checkLoanPeriod(dto.getDateLoan(), dto.getDateReturn())) {
+                throw new AlreadyExistsException("El periodo de préstamo excede el máximo permitido", HttpStatus.BAD_REQUEST);
+            }
+    
+            if (!checkGameAvailability(dto.getGame(), dto.getDateLoan(), dto.getDateReturn())) {
+                throw new AlreadyExistsException("El juego no está disponible en las fechas seleccionadas", HttpStatus.CONFLICT);
+            }
+    
+            if (!checkClientAvailability(dto.getClient(), dto.getDateLoan(), dto.getDateReturn())) {
+                throw new AlreadyExistsException("El cliente tiene otro préstamo en las fechas seleccionadas", HttpStatus.CONFLICT);
+            }
+    
+            Loan loan = new Loan();
+            BeanUtils.copyProperties(dto, loan, "id", "game", "client");
+            loan.setGame(gameService.get(dto.getGame().getId()));
+            loan.setClient(clientService.get(dto.getClient().getId()));
+            loanRepository.save(loan);
+        } catch (AlreadyExistsException e) {
+            System.out.println("Error al guardar el préstamo: " + e.getMessage());
+            System.out.println("Código de error HTTP: " + e.getStatus().value());
         }
-
-        if (!checkLoanPeriod(dto.getDateLoan(), dto.getDateReturn())) {
-            result.setResult(HttpStatus.BAD_REQUEST.value());
-            result.setDescription("El periodo de préstamo excede el máximo permitido");
-            return result;
-        }
-
-        if (!checkGameAvailability(dto.getGame(), dto.getDateLoan(), dto.getDateReturn())) {
-            result.setResult(HttpStatus.CONFLICT.value());
-            result.setDescription("El juego no está disponible en las fechas seleccionadas");
-            return result;
-        }
-
-        if (!checkClientAvailability(dto.getClient(), dto.getDateLoan(), dto.getDateReturn())) {
-            result.setResult(HttpStatus.CONFLICT.value());
-            result.setDescription("El cliente tiene otro préstamo en las fechas seleccionadas");
-            return result;
-        }
-
-        Loan loan = new Loan();
-        BeanUtils.copyProperties(dto, loan, "id", "game", "client");
-        loan.setGame(gameService.get(dto.getGame().getId()));
-        loan.setClient(clientService.get(dto.getClient().getId()));
-        loanRepository.save(loan);
-
-        return result;
     }
 
     private boolean checkLoanPeriod(Date dateLoan, Date dateReturn) {
