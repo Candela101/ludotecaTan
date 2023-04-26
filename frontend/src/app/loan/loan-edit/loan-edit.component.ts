@@ -45,7 +45,7 @@ export class LoanEditComponent implements OnInit {
 
   onSave() {
     this.loanService.saveLoan(this.loan).subscribe(result => {
-      if (result.result < 0) {
+      if (result.result != 0) {
         console.log(result.result);
         console.log(result.description);
 
