@@ -6,7 +6,6 @@ import { Client } from 'src/app/client/model/Client';
 import { ClientService } from 'src/app/client/client.service';
 import { Game } from 'src/app/game/model/Game';
 import { GameService } from 'src/app/game/game.service';
-import { DialogErrorComponent } from 'src/app/core/dialog-error/dialog-error.component';
 
 
 @Component({
@@ -44,17 +43,9 @@ export class LoanEditComponent implements OnInit {
 
 
   onSave() {
+    console.log(this.loan);
     this.loanService.saveLoan(this.loan).subscribe(result => {
-      if (result.result != 0) {
-        console.log(result.result);
-        console.log(result.description);
-
-        const dialogRef = this.dialog.open(DialogErrorComponent, {
-          data: { title: "ERROR " + result.result, description: result.description }
-        });
-      } else {
-        this.dialogRef.close();
-      }
+      this.dialogRef.close();
     });
   }
 
